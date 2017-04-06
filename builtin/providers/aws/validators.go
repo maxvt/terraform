@@ -3,6 +3,7 @@ package aws
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -1151,6 +1152,22 @@ func validateDbOptionGroupNamePrefix(v interface{}, k string) (ws []string, erro
 	if len(value) > 229 {
 		errors = append(errors, fmt.Errorf(
 			"%q cannot be greater than 229 characters", k))
+	}
+	return
+}
+
+func validateOpenIdURL(v interface{}, k string) (ws []string, errors []error) {
+	value := v.(string)
+	u, err := url.Parse(value)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("%q has to be a valid URL", k))
+		return
+	}
+	if u.Scheme != "https" {
+		errors = append(errors, fmt.Errorf("%q has to use HTTPS scheme (i.e. begin with https://)", k))
+	}
+	if len(u.Query()) > 0 {
+		errors = append(errors, fmt.Errorf("%q cannot contain query parameters per the OIDC standard", k))
 	}
 	return
 }

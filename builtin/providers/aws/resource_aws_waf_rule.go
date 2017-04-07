@@ -71,21 +71,20 @@ func resourceAwsWafRule() *schema.Resource {
 func resourceAwsWafRuleCreate(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).wafconn
 
-	// ChangeToken
-	var ct *waf.GetChangeTokenInput
-
-	res, err := conn.GetChangeToken(ct)
+	wt := newWAFToken(conn, "global")
+	token, err := wt.Acquire()
 	if err != nil {
 		return fmt.Errorf("Error getting change token: %s", err)
 	}
 
 	params := &waf.CreateRuleInput{
-		ChangeToken: res.ChangeToken,
+		ChangeToken: token,
 		MetricName:  aws.String(d.Get("metric_name").(string)),
 		Name:        aws.String(d.Get("name").(string)),
 	}
 
 	resp, err := conn.CreateRule(params)
+	wt.Release()
 	if err != nil {
 		return err
 	}
@@ -143,18 +142,17 @@ func resourceAwsWafRuleDelete(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return fmt.Errorf("Error Removing WAF Rule Predicates: %s", err)
 	}
-	// ChangeToken
-	var ct *waf.GetChangeTokenInput
 
-	resp, err := conn.GetChangeToken(ct)
+	wt := newWAFToken(conn, "global")
+	token, err := wt.Acquire()
 
 	req := &waf.DeleteRuleInput{
-		ChangeToken: resp.ChangeToken,
+		ChangeToken: token,
 		RuleId:      aws.String(d.Id()),
 	}
 	log.Printf("[INFO] Deleting WAF Rule")
 	_, err = conn.DeleteRule(req)
-
+	wt.Release()
 	if err != nil {
 		return fmt.Errorf("Error deleting WAF Rule: %s", err)
 	}
@@ -165,16 +163,14 @@ func resourceAwsWafRuleDelete(d *schema.ResourceData, meta interface{}) error {
 func updateWafRuleResource(d *schema.ResourceData, meta interface{}, ChangeAction string) error {
 	conn := meta.(*AWSClient).wafconn
 
-	// ChangeToken
-	var ct *waf.GetChangeTokenInput
-
-	resp, err := conn.GetChangeToken(ct)
+	wt := newWAFToken(conn, "global")
+	token, err := wt.Acquire()
 	if err != nil {
 		return fmt.Errorf("Error getting change token: %s", err)
 	}
 
 	req := &waf.UpdateRuleInput{
-		ChangeToken: resp.ChangeToken,
+		ChangeToken: token,
 		RuleId:      aws.String(d.Id()),
 	}
 
@@ -193,6 +189,7 @@ func updateWafRuleResource(d *schema.ResourceData, meta interface{}, ChangeActio
 	}
 
 	_, err = conn.UpdateRule(req)
+	wt.Release()
 	if err != nil {
 		return fmt.Errorf("Error Updating WAF Rule: %s", err)
 	}

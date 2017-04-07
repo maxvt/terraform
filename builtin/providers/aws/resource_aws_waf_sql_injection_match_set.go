@@ -61,21 +61,19 @@ func resourceAwsWafSqlInjectionMatchSetCreate(d *schema.ResourceData, meta inter
 
 	log.Printf("[INFO] Creating SqlInjectionMatchSet: %s", d.Get("name").(string))
 
-	// ChangeToken
-	var ct *waf.GetChangeTokenInput
-
-	res, err := conn.GetChangeToken(ct)
+	wt := newWAFToken(conn, "global")
+	token, err := wt.Acquire()
 	if err != nil {
 		return errwrap.Wrapf("[ERROR] Error getting change token: {{err}}", err)
 	}
 
 	params := &waf.CreateSqlInjectionMatchSetInput{
-		ChangeToken: res.ChangeToken,
+		ChangeToken: token,
 		Name:        aws.String(d.Get("name").(string)),
 	}
 
 	resp, err := conn.CreateSqlInjectionMatchSet(params)
-
+	wt.Release()
 	if err != nil {
 		return errwrap.Wrapf("[ERROR] Error creating SqlInjectionMatchSet: {{err}}", err)
 	}
@@ -126,17 +124,16 @@ func resourceAwsWafSqlInjectionMatchSetDelete(d *schema.ResourceData, meta inter
 		return errwrap.Wrapf("[ERROR] Error deleting SqlInjectionMatchSet: {{err}}", err)
 	}
 
-	var ct *waf.GetChangeTokenInput
-
-	resp, err := conn.GetChangeToken(ct)
+	wt := newWAFToken(conn, "global")
+	token, err := wt.Acquire()
 
 	req := &waf.DeleteSqlInjectionMatchSetInput{
-		ChangeToken:            resp.ChangeToken,
+		ChangeToken:            token,
 		SqlInjectionMatchSetId: aws.String(d.Id()),
 	}
 
 	_, err = conn.DeleteSqlInjectionMatchSet(req)
-
+	wt.Release()
 	if err != nil {
 		return errwrap.Wrapf("[ERROR] Error deleting SqlInjectionMatchSet: {{err}}", err)
 	}
@@ -147,15 +144,14 @@ func resourceAwsWafSqlInjectionMatchSetDelete(d *schema.ResourceData, meta inter
 func updateSqlInjectionMatchSetResource(d *schema.ResourceData, meta interface{}, ChangeAction string) error {
 	conn := meta.(*AWSClient).wafconn
 
-	var ct *waf.GetChangeTokenInput
-
-	resp, err := conn.GetChangeToken(ct)
+	wt := newWAFToken(conn, "global")
+	token, err := wt.Acquire()
 	if err != nil {
 		return errwrap.Wrapf("[ERROR] Error getting change token: {{err}}", err)
 	}
 
 	req := &waf.UpdateSqlInjectionMatchSetInput{
-		ChangeToken:            resp.ChangeToken,
+		ChangeToken:            token,
 		SqlInjectionMatchSetId: aws.String(d.Id()),
 	}
 
@@ -173,6 +169,7 @@ func updateSqlInjectionMatchSetResource(d *schema.ResourceData, meta interface{}
 	}
 
 	_, err = conn.UpdateSqlInjectionMatchSet(req)
+	wt.Release()
 	if err != nil {
 		return errwrap.Wrapf("[ERROR] Error updating SqlInjectionMatchSet: {{err}}", err)
 	}
